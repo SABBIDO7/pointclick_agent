@@ -1,0 +1,6 @@
+# Environment Variables
+.env
+# Virtual Environment
+.venv/
+# OS
+.DS_Store
