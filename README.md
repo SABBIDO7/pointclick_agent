@@ -24,19 +24,27 @@ Minimal Claude‑style agent that pilots a Chrome Extension via a localhost WebS
 
 ### 1. Clone the Repository
 ```bash
-git clone <https://github.com/SABBIDO7/pointclick_agent.git>
+git clone https://github.com/SABBIDO7/pointclick_agent.git
 cd pointclick_agent
 ```
 
 ### 2. Install Python Dependencies
 ```bash
-python3 -m venv .venv
+python3 -m venv .venv  # or python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 cd client
 pip install -r requirements.txt
 ```
 
 ### 3. Configure Environment Variables
+
+- This project uses the Anthropic Claude API to power the browser agent.
+- You will need to create an Anthropic account and get an API key before continuing.
+
+- 👉 You can get an API key here: https://console.anthropic.com/settings/keys
+
+- Once you have your key, copy the example environment file and edit it:
+
 ```bash
 cp .env.example .env
 ```
@@ -62,10 +70,6 @@ WS_PORT=8765
 With the extension awake, run your automation tasks:
 
 ```bash
-# Make sure you're in the client directory and venv is activated
-cd client
-source ../.venv/bin/activate  # If not already activated
-
 # Run a task
 python run.py "Open google.com and search for AI news"
 ```
@@ -134,6 +138,11 @@ For more details on:
 - Tool schemas: See `client/tools.py`
 - System prompt: See `client/system_prompt.md`
 - Extension API: See `extensions/` directory
+
+## ⚠️ Limitations
+
+- Some tasks require the user to already be authenticated. For example, accessing Gmail actions requires that you are logged into your Gmail account in the browser before running the agent.
+- The agent interacts with real browser sessions, so actions depend on network speed and page layout changes.
 
 ## 🤝 Contributing
 
