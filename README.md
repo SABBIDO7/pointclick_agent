@@ -4,7 +4,7 @@ Minimal Claude‑style agent that pilots a Chrome Extension via a localhost WebS
 
 ## DemoVideoLink
 
-- link:`https://drive.google.com/file/d/17gFgHOI3O_K4T2_LnfDY4yhd0B_N2gLG/view`
+- link: https://drive.google.com/file/d/17gFgHOI3O_K4T2_LnfDY4yhd0B_N2gLG/view
 
 ## ✨ What it does
 
