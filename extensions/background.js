@@ -1,4 +1,5 @@
 // background.js - Service worker (supports modules)
+
 const MSG = {
   HELLO: "adapter/hello",
   RPC_CALL: "adapter/rpc_call",
@@ -16,35 +17,63 @@ function sleep(ms) {
 
 let ws,
   wsUrl = 'ws://127.0.0.1:8765',
-  retryTimer = null
+  retryTimer = null,
+  isConnected = false
 
 function connectWS() {
+  // Clear any existing retry timer
+  if (retryTimer) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+
   try {
+    console.log('[adapter] Attempting connection to', wsUrl)
     ws = new WebSocket(wsUrl)
-  } catch {
+  } catch (e) {
+    console.warn('[adapter] WebSocket creation failed:', e.message)
     scheduleReconnect()
     return
   }
-  ws.onopen = () => console.log('[adapter] connected', wsUrl)
-  ws.onclose = () => {
-    console.log('[adapter] disconnected')
+  
+  ws.onopen = () => {
+    isConnected = true
+    console.log('[adapter] ✓ Connected to', wsUrl)
+    // Clear retry timer on successful connection
+    if (retryTimer) {
+      clearTimeout(retryTimer)
+      retryTimer = null
+    }
+  }
+  
+  ws.onclose = (e) => {
+    isConnected = false
+    console.log('[adapter] Disconnected (code:', e.code, ')')
     scheduleReconnect()
   }
+  
   ws.onerror = (e) => {
-    console.warn('[adapter] socket error', e)
-    try {
-      ws.close()
-    } catch {}
+    isConnected = false
+    console.warn('[adapter] WebSocket error:', e.type)
+    // onclose will be called automatically, which triggers reconnect
   }
+  
   ws.onmessage = onMessage
 }
 
 function scheduleReconnect() {
-  if (!retryTimer)
-    retryTimer = setTimeout(() => {
-      retryTimer = null
+  // Prevent multiple reconnect timers
+  if (retryTimer) {
+    return
+  }
+  
+  console.log('[adapter] Will retry connection in 2 seconds...')
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    if (!isConnected) {
       connectWS()
-    }, 2000)
+    }
+  }, 2000)
 }
 
 async function initAndConnect() {
@@ -66,10 +95,11 @@ async function callContent(method, params) {
   return res.result
 }
 
-/**
+async function waitForContentScript(tabId, maxAttempts = 30) {
+  /**
  * Wait for content script to be ready by pinging it
  */
-async function waitForContentScript(tabId, maxAttempts = 30) {
+
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await chrome.tabs.sendMessage(tabId, { 
@@ -145,7 +175,12 @@ async function onMessage(evt) {
         
         console.log('[adapter] Navigation complete')
         const result = { navigated: url }
-        ws?.send(JSON.stringify(rpcResult(id, { ok: true, result })))
+        // Check connection before sending
+        if (ws && isConnected && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(rpcResult(id, { ok: true, result })))
+        } else {
+          throw new Error('WebSocket not connected')
+        }
         break
       }
       
@@ -158,11 +193,13 @@ async function onMessage(evt) {
         // Wait for content script on switched tab
         await waitForContentScript(tabs[index].id)
         
-        ws?.send(
-          JSON.stringify(
-            rpcResult(id, { ok: true, result: { activeIndex: index } })
+        if (ws && isConnected && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify(
+              rpcResult(id, { ok: true, result: { activeIndex: index } })
+            )
           )
-        )
+        }
         break
       }
       
@@ -170,23 +207,29 @@ async function onMessage(evt) {
         const { url, filename } = msg.params || {}
         if (!url) throw new Error('download: url is required')
         const idDl = await chrome.downloads.download({ url, filename })
-        ws?.send(
-          JSON.stringify(
-            rpcResult(id, { ok: true, result: { downloadId: idDl } })
+        if (ws && isConnected && ws.readyState === WebSocket.OPEN) {
+          ws.send(
+            JSON.stringify(
+              rpcResult(id, { ok: true, result: { downloadId: idDl } })
+            )
           )
-        )
+        }
         break
       }
       
       default: {
         // Forward to content script
         const result = await callContent(msg.method, msg.params || {})
-        ws?.send(JSON.stringify(rpcResult(id, { ok: true, result })))
+        if (ws && isConnected && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(rpcResult(id, { ok: true, result })))
+        }
       }
     }
   } catch (error) {
     console.error('[adapter] RPC error:', error)
-    ws?.send(JSON.stringify(rpcResult(id, { ok: false, error: String(error) })))
+    if (ws && isConnected && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(rpcResult(id, { ok: false, error: String(error) })))
+    }
   }
 }
 

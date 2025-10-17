@@ -1,15 +1,18 @@
 from pydantic import BaseModel
 from typing import Any, Dict
 
-# RPC envelope used between orchestrator and extension
+
 class Rpc(BaseModel):
+    """RPC envelope used between orchestrator and extension"""
+
     id: str
     type: str
     method: str
     params: Dict[str, Any] = {}
 
-# Claude tool schemas (mirroring extension capabilities)
 CLAUDE_TOOLS = [
+    #Claude tool schemas (mirroring extension capabilities)"""
+
     {
         "name": "navigate",
         "description": "Open or navigate the active tab to a URL. Always wait briefly after navigation for page to load.",
@@ -113,6 +116,17 @@ CLAUDE_TOOLS = [
                 "filename": {"type": "string", "description": "Optional filename to save as"}
             },
             "required": ["url"]
+        }
+    },
+    {
+        "name": "upload_file",
+        "description": "Click a file input to trigger the native file picker dialog. Note: Cannot set file path programmatically due to browser security. User must manually select file after dialog opens.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string", "description": "CSS selector for the file input element"}
+            },
+            "required": ["selector"]
         }
     }
 ]

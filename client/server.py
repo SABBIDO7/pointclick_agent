@@ -3,6 +3,7 @@ import asyncio, json, os, uuid
 import websockets
 from dotenv import load_dotenv
 
+
 load_dotenv()
 HOST = os.getenv("WS_HOST", "127.0.0.1")
 PORT = int(os.getenv("WS_PORT", "8765"))

@@ -1,4 +1,5 @@
-// Content script: NO IMPORTS - must be standalone for manifest injection
+// Used For DOM Interactions
+
 const MSG = {
   HELLO: "adapter/hello",
   RPC_CALL: "adapter/rpc_call",
