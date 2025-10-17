@@ -1,4 +1,4 @@
-// background.js - Service worker (supports modules)
+// background.js - Service worker with keep-alive
 
 const MSG = {
   HELLO: "adapter/hello",
@@ -18,13 +18,19 @@ function sleep(ms) {
 let ws,
   wsUrl = 'ws://127.0.0.1:8765',
   retryTimer = null,
+  keepAliveTimer = null,
   isConnected = false
 
 function connectWS() {
-  // Clear any existing retry timer
+  // Clear any existing timers
   if (retryTimer) {
     clearTimeout(retryTimer)
     retryTimer = null
+  }
+  
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer)
+    keepAliveTimer = null
   }
 
   try {
@@ -39,26 +45,66 @@ function connectWS() {
   ws.onopen = () => {
     isConnected = true
     console.log('[adapter] ✓ Connected to', wsUrl)
+    
     // Clear retry timer on successful connection
     if (retryTimer) {
       clearTimeout(retryTimer)
       retryTimer = null
     }
+    
+    // Start keep-alive pings every 20 seconds
+    startKeepAlive()
   }
   
   ws.onclose = (e) => {
     isConnected = false
     console.log('[adapter] Disconnected (code:', e.code, ')')
+    
+    // Stop keep-alive
+    if (keepAliveTimer) {
+      clearInterval(keepAliveTimer)
+      keepAliveTimer = null
+    }
+    
     scheduleReconnect()
   }
   
   ws.onerror = (e) => {
     isConnected = false
     console.warn('[adapter] WebSocket error:', e.type)
-    // onclose will be called automatically, which triggers reconnect
   }
   
   ws.onmessage = onMessage
+}
+
+function startKeepAlive() {
+  /**
+   * Send periodic pings to keep both the WebSocket and service worker alive.
+   * This prevents the service worker from going to sleep.
+   */
+  if (keepAliveTimer) {
+    clearInterval(keepAliveTimer)
+  }
+  
+  console.log('[adapter] Starting keep-alive (ping every 20s)')
+  
+  keepAliveTimer = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        // Send a ping message
+        ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }))
+        console.log('[adapter] Keep-alive ping sent')
+      } catch (e) {
+        console.warn('[adapter] Keep-alive ping failed:', e)
+        // Connection might be dead, let onclose handle it
+      }
+    } else {
+      console.warn('[adapter] Keep-alive: WebSocket not open, reconnecting...')
+      clearInterval(keepAliveTimer)
+      keepAliveTimer = null
+      connectWS()
+    }
+  }, 20000)
 }
 
 function scheduleReconnect() {
@@ -97,9 +143,8 @@ async function callContent(method, params) {
 
 async function waitForContentScript(tabId, maxAttempts = 30) {
   /**
- * Wait for content script to be ready by pinging it
- */
-
+   * Wait for content script to be ready by pinging it
+   */
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await chrome.tabs.sendMessage(tabId, { 
@@ -126,6 +171,13 @@ async function onMessage(evt) {
     return
   }
   const { id, type } = msg || {}
+  
+  // Handle pong responses (if server sends them)
+  if (type === 'pong') {
+    console.log('[adapter] Received pong from server')
+    return
+  }
+  
   if (type !== MSG.RPC_CALL) return // only RPCs from server
 
   try {
@@ -233,7 +285,27 @@ async function onMessage(evt) {
   }
 }
 
-// Boot hooks
+// Boot hooks - these wake the service worker
 chrome.runtime.onInstalled.addListener(initAndConnect)
 chrome.runtime.onStartup.addListener(initAndConnect)
 chrome.action.onClicked.addListener(initAndConnect)
+
+// CRITICAL: Keep service worker alive
+// Chrome will terminate service workers after 30 seconds of inactivity
+// We need to do periodic work to prevent termination
+chrome.alarms.create('keep-alive', { periodInMinutes: 0.5 }) // Every 30 seconds
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === 'keep-alive') {
+    console.log('[adapter] Keep-alive alarm fired')
+    
+    if (!isConnected) {
+      console.log('[adapter] Not connected, attempting to connect...')
+      connectWS()
+    }
+  }
+})
+
+// Connect immediately when service worker starts
+console.log('[adapter] Service worker starting...')
+initAndConnect()

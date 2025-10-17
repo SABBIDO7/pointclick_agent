@@ -3,7 +3,7 @@
   "name": "Point&Click Adapter",
   "version": "0.1.0",
   "description": "WebSocket‑controlled adapter that exposes safe DOM actions for an AI agent.",
-  "permissions": ["scripting", "activeTab", "tabs", "storage", "downloads"],
+  "permissions": ["scripting", "activeTab", "tabs", "storage", "downloads", "alarms"],
   "host_permissions": [
     "<all_urls>"
   ],
