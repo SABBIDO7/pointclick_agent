@@ -2,6 +2,10 @@
 
 Minimal Claude‑style agent that pilots a Chrome Extension via a localhost WebSocket bridge.
 
+## DemoVideoLink
+
+- link:`https://drive.google.com/file/d/17gFgHOI3O_K4T2_LnfDY4yhd0B_N2gLG/view`
+
 ## ✨ What it does
 
 - Takes a natural language task (e.g., "Open Gmail and list promo emails I've not opened in 3 months").
@@ -20,7 +24,7 @@ Minimal Claude‑style agent that pilots a Chrome Extension via a localhost WebS
 
 ### 1. Clone the Repository
 ```bash
-git clone <repository-url>
+git clone <https://github.com/SABBIDO7/pointclick_agent.git>
 cd pointclick_agent
 ```
 
@@ -82,7 +86,7 @@ python run.py "Find the latest paper on Hugging Face Daily Paper about UI Agents
 python run.py "Open my github and check my current open pull requests"
 
 # Tab switch
-python run.py "Open google.com in a new tab, then switch to tab 0, then switch back to tab 1" 
+python run.py "Open wikipedia.com in a new tab then switch back to tab 0"
 
 ```
 
